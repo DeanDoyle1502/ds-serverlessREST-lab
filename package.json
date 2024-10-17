@@ -8,7 +8,7 @@
     "build": "tsc",
     "watch": "tsc -w",
     "cdk": "cdk",
-    "schema": "typescript-json-schema --noExtraProps --required --refs false -o ../shared/types.schema.json  \"./shared/types.d.ts\" \"*\""
+    "schema": "typescript-json-schema --noExtraProps --required --refs false -o ./shared/types.schema.json  \"./shared/types.d.ts\" \"*\""
   },
   "devDependencies": {
     "@types/aws-lambda": "^8.10.145",
