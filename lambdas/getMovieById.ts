@@ -1,17 +1,19 @@
 import { APIGatewayProxyHandlerV2 } from "aws-lambda";
-
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { DynamoDBDocumentClient, GetCommand } from "@aws-sdk/lib-dynamodb";
+import { DynamoDBDocumentClient, GetCommand, QueryCommand } from "@aws-sdk/lib-dynamodb";
+
 
 const ddbDocClient = createDDbDocClient();
 
 export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
   try {
-    // Print Event
+    
     console.log("[EVENT]", JSON.stringify(event));
-    const parameters = event?.pathParameters
+
+    const parameters = event?.pathParameters;
     const movieId = parameters?.movieId ? parseInt(parameters.movieId) : undefined;
 
+    
     if (!movieId) {
       return {
         statusCode: 404,
@@ -22,14 +24,18 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
       };
     }
 
-    const commandOutput = await ddbDocClient.send(
+    
+    const movieCommandOutput = await ddbDocClient.send(
       new GetCommand({
-        TableName: process.env.TABLE_NAME,
+        TableName: process.env.TABLE_NAME, 
         Key: { id: movieId },
       })
     );
-    console.log("GetCommand response: ", commandOutput);
-    if (!commandOutput.Item) {
+
+    console.log("GetCommand response: ", movieCommandOutput);
+
+    
+    if (!movieCommandOutput.Item) {
       return {
         statusCode: 404,
         headers: {
@@ -38,11 +44,36 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
         body: JSON.stringify({ Message: "Invalid movie Id" }),
       };
     }
-    const body = {
-      data: commandOutput.Item,
+
+    
+    const body: any = {
+      data: movieCommandOutput.Item,
     };
 
-    // Return Response
+    
+    if (event.queryStringParameters && event.queryStringParameters.cast === "true") {
+      
+      const castCommandOutput = await ddbDocClient.send(
+        new QueryCommand({
+          TableName: process.env.CAST_TABLE_NAME, 
+          KeyConditionExpression: "movieId = :m",
+        ExpressionAttributeValues: {
+          ":m": movieId,
+        },
+        })
+      );
+
+      console.log("QueryCommand response: ", castCommandOutput);
+
+      
+      if (castCommandOutput.Items && castCommandOutput.Items.length > 0) {
+        body.data.cast = castCommandOutput.Items; 
+      } else {
+        body.data.cast = []; 
+      }
+    }
+
+
     return {
       statusCode: 200,
       headers: {
@@ -51,7 +82,7 @@ export const handler: APIGatewayProxyHandlerV2 = async (event, context) => {
       body: JSON.stringify(body),
     };
   } catch (error: any) {
-    console.log(JSON.stringify(error));
+    console.error("Error fetching movie or cast data: ", error);
     return {
       statusCode: 500,
       headers: {
